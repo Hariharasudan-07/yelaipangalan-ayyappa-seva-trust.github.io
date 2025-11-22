@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YELAIPANGALAN AYYAPPA SEVA TRUST — Kanni Pooja Booking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body { font-family: Arial; background: #fdf6e3; text-align: center; padding: 0; margin: 0; }
+        .page { display: none; padding: 20px; }
+        .active { display: block; }
+
+        .box { background: white; padding: 20px; margin: auto; margin-top: 30px;
+            width: 320px; border-radius: 10px; box-shadow: 0 0 15px #888; }
+
+        input, button {
+            width: 90%; padding: 12px; margin: 10px 0;
+            font-size: 16px; border-radius: 5px; border:1px solid #333;
+        }
+        button { background: #c6862c; color:white; cursor:pointer; }
+
+        .calendar {
+            display: grid; grid-template-columns: repeat(7,1fr);
+            gap: 8px; max-width: 500px; margin: auto;
+        }
+        .day {
+            padding: 12px; border-radius: 6px; font-weight:bold; cursor:pointer;
+        }
+        .past { background:#bbb !important; color:black; cursor:not-allowed; }
+        .available { background: green; color:white; }
+        .booked { background:red; color:white; }
+        .selected { outline: 3px solid #c6862c; }
+
+        .monthNav button { width:140px; }
+        #slotSection { display:none; margin-top:20px; }
+        #timeBox { display:none; }
+
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #444; padding: 8px; }
+    </style>
+</head>
+<body>
+
+<!-- Hidden temple image for PDF background -->
+<img id="bgImg" src="/mnt/data/2.jpg" hidden>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="page active">
+    <h2>YELAIPANGALAN AYYAPPA SEVA TRUST</h2>
+    <div class="box">
+        <h3>Login</h3>
+        <input id="name" placeholder="Enter Name">
+        <input id="phone" placeholder="Enter Phone Number">
+        <button onclick="login()">Submit</button>
+
+        <hr>
+        <button onclick="adminLogin()" style="background:#333;">Admin Login</button>
+    </div>
+</div>
+
+<!-- BOOKING PAGE -->
+<div id="bookingPage" class="page">
+    <h2>Kanni Pooja Booking</h2>
+
+    <div class="monthNav">
+        <button onclick="prevMonth()">◀ Previous</button>
+        <button onclick="nextMonth()">Next ▶</button>
+    </div>
+
+    <h3 id="monthLabel"></h3>
+    <div id="calendar" class="calendar"></div>
+
+    <div id="slotSection">
+        <h3>Select Slot</h3>
+        <label><input type="radio" name="slot" value="FN" onchange="showTime()"> Forenoon</label><br>
+        <label><input type="radio" name="slot" value="AN" onchange="showTime()"> Afternoon</label>
+
+        <div id="timeBox">
+            <h3>Select Time</h3>
+            <input type="time" id="timeInput">
+        </div>
+
+        <button onclick="confirmBooking()">Confirm Booking</button>
+    </div>
+</div>
+
+<!-- SUCCESS PAGE -->
+<div id="successPage" class="page">
+    <div class="box">
+        <h2>Booking Successful</h2>
+        <p><b>Name:</b> <span id="finalName"></span></p>
+        <p><b>Phone:</b> <span id="finalPhone"></span></p>
+        <p><b>Date:</b> <span id="finalDate"></span></p>
+        <p><b>Slot:</b> <span id="finalSlot"></span></p>
+        <p><b>Time:</b> <span id="finalTime"></span></p>
+        <button onclick="downloadReceipt()">Download PDF</button>
+    </div>
+</div>
+
+<!-- ADMIN PAGE -->
+<div id="adminPage" class="page">
+    <h2>Admin – Booking Database</h2>
+
+    <button onclick="loadAdminTable()">🔄 Refresh</button>
+    <button onclick="clearAllBookings()" style="background:red;color:white;">Delete ALL</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Slot</th>
+                <th>Time</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
+    </table>
+
+    <br>
+    <button onclick="showPage('loginPage')">Logout</button>
+</div>
+
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+let bookings = JSON.parse(localStorage.getItem("bookings")) || {};
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+
+let userName = "";
+let userPhone = "";
+let selectedDate = null;
+let selectedSlot = null;
+let selectedTime = null;
+
+function showPage(id){
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+}
+
+function login(){
+    userName = document.getElementById("name").value.trim();
+    userPhone = document.getElementById("phone").value.trim();
+
+    if(!userName || !userPhone){ alert("Fill all fields"); return; }
+
+    showPage("bookingPage");
+    loadCalendar();
+}
+
+function loadCalendar(){
+    document.getElementById("slotSection").style.display="none";
+
+    const monthNames=["January","February","March","April","May","June","July","August",
+                      "September","October","November","December"];
+
+    document.getElementById("monthLabel").innerText =
+        monthNames[currentMonth] + " " + currentYear;
+
+    let cal = document.getElementById("calendar");
+    cal.innerHTML = "";
+
+    let firstDay = new Date(currentYear,currentMonth,1).getDay();
+    let days = new Date(currentYear,currentMonth+1,0).getDate();
+    let today = new Date();
+
+    for(let i=0;i<firstDay;i++){
+        cal.appendChild(document.createElement("div"));
+    }
+
+    for(let d=1; d<=days; d++){
+        let mm = String(currentMonth+1).padStart(2,"0");
+        let dd = String(d).padStart(2,"0");
+        let key = `${currentYear}-${mm}-${dd}`;
+
+        let div = document.createElement("div");
+        div.innerText = d;
+        div.classList.add("day");
+
+        let dateObj = new Date(currentYear,currentMonth,d);
+
+        if(dateObj < new Date(today.getFullYear(),today.getMonth(),today.getDate())){
+            div.classList.add("past");
+        }
+        else if(bookings[key]){
+            div.classList.add("booked");
+        }
+        else{
+            div.classList.add("available");
+        }
+
+        div.onclick = function(){
+            if(div.classList.contains("past")) return;
+            if(div.classList.contains("booked")){
+                alert("This date is already booked.");
+                return;
+            }
+
+            selectedDate = key;
+
+            document.querySelectorAll(".day").forEach(x => x.classList.remove("selected"));
+            div.classList.add("selected");
+
+            document.getElementById("slotSection").style.display = "block";
+        };
+
+        cal.appendChild(div);
+    }
+}
+
+function nextMonth(){
+    currentMonth++;
+    if(currentMonth>11){ currentMonth=0; currentYear++; }
+    loadCalendar();
+}
+
+function prevMonth(){
+    currentMonth--;
+    if(currentMonth<0){ currentMonth=11; currentYear--; }
+    loadCalendar();
+}
+
+function showTime(){
+    document.getElementById("timeBox").style.display="block";
+}
+
+function confirmBooking(){
+    let slot = document.querySelector("input[name='slot']:checked");
+    if(!selectedDate){ alert("Select a day first"); return; }
+    if(!slot){ alert("Select a slot"); return; }
+
+    selectedSlot = slot.value;
+    selectedTime = document.getElementById("timeInput").value;
+
+    if(!selectedTime){ alert("Select a time"); return; }
+
+    bookings[selectedDate] = {
+        name: userName,
+        phone: userPhone,
+        slot: selectedSlot,
+        time: selectedTime
+    };
+
+    localStorage.setItem("bookings", JSON.stringify(bookings));
+
+    document.getElementById("finalName").innerText = userName;
+    document.getElementById("finalPhone").innerText = userPhone;
+    document.getElementById("finalDate").innerText = selectedDate;
+    document.getElementById("finalSlot").innerText = selectedSlot;
+    document.getElementById("finalTime").innerText = selectedTime;
+
+    showPage("successPage");
+}
+
+/* ---------------- PDF RECEIPT FIXED VERSION ---------------- */
+
+async function downloadReceipt() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+
+    const img = document.getElementById("bgImg");
+
+    // CONVERT image to Base64
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const bgBase64 = canvas.toDataURL("image/jpeg");
+
+    // Background
+    doc.addImage(bgBase64, "JPEG", 0, 0, 210, 297);
+
+    
+
+    // Black transparent box
+    doc.setFillColor(250, 222, 134);
+    doc.rect(15, 15, 210 - 25, 297 - 25 , "F");
+
+	// Title
+    doc.setFontSize(26);
+    doc.setTextColor(0, 0, 0);
+    doc.text("YELAIPANGALAN AYYAPPA SEVA TRUST", 105, 35, { align: "center" });
+    doc.text("Kanni Pooja Booking Receipt", 105, 50, { align: "center" });
+
+    // Details
+    doc.setFontSize(18);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Booking Details", 105, 95, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.text(`Name : ${userName}`, 105, 120, { align: "center" });
+    doc.text(`Phone : ${userPhone}`, 105, 135, { align: "center" });
+    doc.text(`Date : ${selectedDate}`, 105, 150, { align: "center" });
+    doc.text(`Slot : ${selectedSlot}`, 105, 165, { align: "center" });
+    doc.text(`Time : ${selectedTime}`, 105, 180, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.text("Swamiye Saranam Ayyappa", 105, 265, { align: "center" });
+
+    doc.save("KanniPooja_Receipt.pdf");
+}
+
+/* ---------------- ADMIN FUNCTIONS ---------------- */
+
+function adminLogin(){
+    let pwd = prompt("Enter Admin Password:");
+    if(pwd === "0000"){
+        showPage("adminPage");
+        loadAdminTable();
+    } else {
+        alert("Wrong Password");
+    }
+}
+
+function loadAdminTable(){
+    let table = document.getElementById("adminTableBody");
+    table.innerHTML = "";
+
+    for(let date in bookings){
+        let b = bookings[date];
+
+        table.innerHTML += `
+            <tr>
+                <td>${date}</td>
+                <td>${b.name}</td>
+                <td>${b.phone}</td>
+                <td>${b.slot}</td>
+                <td>${b.time}</td>
+                <td><button onclick="deleteBooking('${date}')">Delete</button></td>
+            </tr>
+        `;
+    }
+}
+
+function deleteBooking(date){
+    if(confirm("Delete booking for " + date + "?")){
+        delete bookings[date];
+        localStorage.setItem("bookings", JSON.stringify(bookings));
+        loadAdminTable();
+    }
+}
+
+function clearAllBookings(){
+    if(confirm("Delete ALL bookings?")){
+        bookings = {};
+        localStorage.removeItem("bookings");
+        loadAdminTable();
+    }
+}
+</script>
+
+</body>
+</html>
