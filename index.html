@@ -3,7 +3,6 @@
 <head>
     <title>YELAIPANGALAN AYYAPPA SEVA TRUST — Kanni Pooja Booking</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <style>
         body { font-family: Arial; background: #fdf6e3; text-align: center; padding: 0; margin: 0; }
         .page { display: none; padding: 20px; }
@@ -56,7 +55,6 @@
         <input id="name" placeholder="Enter Name">
         <input id="phone" placeholder="Enter Phone Number">
         <button onclick="login()">Submit</button>
-
         <hr>
         <button onclick="adminLogin()" style="background:#333;">Admin Login</button>
     </div>
@@ -65,12 +63,10 @@
 <!-- BOOKING PAGE -->
 <div id="bookingPage" class="page">
     <h2>Kanni Pooja Booking</h2>
-
     <div class="monthNav">
         <button onclick="prevMonth()">◀ Previous</button>
         <button onclick="nextMonth()">Next ▶</button>
     </div>
-
     <h3 id="monthLabel"></h3>
     <div id="calendar" class="calendar"></div>
 
@@ -104,7 +100,6 @@
 <!-- ADMIN PAGE -->
 <div id="adminPage" class="page">
     <h2>Admin – Booking Database</h2>
-
     <button onclick="loadAdminTable()">🔄 Refresh</button>
     <button onclick="clearAllBookings()" style="background:red;color:white;">Delete ALL</button>
 
@@ -121,7 +116,6 @@
         </thead>
         <tbody id="adminTableBody"></tbody>
     </table>
-
     <br>
     <button onclick="showPage('loginPage')">Logout</button>
 </div>
@@ -132,7 +126,6 @@
 
 <!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 
 <script>
 // ---------------- FIREBASE INIT ----------------
@@ -146,19 +139,14 @@ const firebaseConfig = {
   appId: "1:110638537912:web:6a3c9c92baf2860668684d",
   measurementId: "G-GQ0PP4JN9D"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ---------------- VARIABLES ----------------
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
-
-let userName = "";
-let userPhone = "";
-let selectedDate = null;
-let selectedSlot = null;
-let selectedTime = null;
+let userName = "", userPhone = "";
+let selectedDate = null, selectedSlot = null, selectedTime = null;
 
 // ---------------- PAGE SWITCH ----------------
 function showPage(id){
@@ -170,196 +158,141 @@ function showPage(id){
 function login(){
     userName = document.getElementById("name").value.trim();
     userPhone = document.getElementById("phone").value.trim();
-
-    if(!userName || !userPhone){
-        alert("Fill all fields");
-        return;
-    }
-
+    if(!userName || !userPhone){ alert("Fill all fields"); return; }
     showPage("bookingPage");
     loadCalendar();
 }
 
-// ---------------- CALENDAR (FIXED) ----------------
+// ---------------- CALENDAR ----------------
 function loadCalendar() {
-
     document.getElementById("slotSection").style.display = "none";
 
     const monthNames = [
         "January","February","March","April","May","June",
         "July","August","September","October","November","December"
     ];
-
-    document.getElementById("monthLabel").innerText =
-        monthNames[currentMonth] + " " + currentYear;
+    document.getElementById("monthLabel").innerText = monthNames[currentMonth]+" "+currentYear;
 
     let cal = document.getElementById("calendar");
     cal.innerHTML = "";
 
-    // LOAD BOOKINGS FIRST
+    // Weekday headers
+    ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{
+        let div = document.createElement("div");
+        div.innerText=d;
+        div.style.fontWeight="bold";
+        cal.appendChild(div);
+    });
+
     db.ref("bookings").once("value").then(snapshot => {
-
         const bookings = snapshot.val() || {};
-
-        let firstDay = new Date(currentYear, currentMonth, 1).getDay();
-        let totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+        let firstDay = new Date(currentYear,currentMonth,1).getDay();
+        let totalDays = new Date(currentYear,currentMonth+1,0).getDate();
         let today = new Date();
+        let todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-        for (let i = 0; i < firstDay; i++) {
+        // Empty slots for first week
+        for(let i=0;i<firstDay;i++){
             let blank = document.createElement("div");
-            blank.classList.add("empty");
             cal.appendChild(blank);
         }
 
-        for (let d = 1; d <= totalDays; d++) {
-
-            let mm = String(currentMonth + 1).padStart(2, "0");
-            let dd = String(d).padStart(2, "0");
+        for(let d=1; d<=totalDays; d++){
+            let mm = String(currentMonth+1).padStart(2,"0");
+            let dd = String(d).padStart(2,"0");
             let key = `${currentYear}-${mm}-${dd}`;
 
             let div = document.createElement("div");
-            div.innerText = d;
+            div.innerText=d;
             div.classList.add("day");
 
-            let dateObj = new Date(currentYear, currentMonth, d);
-            let todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            let dateObj = new Date(currentYear,currentMonth,d);
 
-            if (dateObj < todayMid) {
-                div.classList.add("past");
-            }
-            else if (bookings[key]) {
-                div.classList.add("booked");
-            }
-            else {
-                div.classList.add("available");
-            }
+            if(dateObj < todayMid){ div.classList.add("past"); }
+            else if(bookings[key]){ div.classList.add("booked"); }
+            else{ div.classList.add("available"); }
 
-            div.onclick = function () {
-                if (div.classList.contains("past")) return;
-                if (div.classList.contains("booked")) {
-                    alert("This date is already booked.");
-                    return;
-                }
-
+            div.onclick = function(){
+                if(div.classList.contains("past") || div.classList.contains("booked")) return;
                 selectedDate = key;
-
                 document.querySelectorAll(".day").forEach(x => x.classList.remove("selected"));
                 div.classList.add("selected");
-
-                document.getElementById("slotSection").style.display = "block";
+                document.getElementById("slotSection").style.display="block";
             };
-
             cal.appendChild(div);
         }
     });
 }
 
-function nextMonth(){
-    currentMonth++;
-    if(currentMonth>11){ currentMonth=0; currentYear++; }
-    loadCalendar();
-}
-
-function prevMonth(){
-    currentMonth--;
-    if(currentMonth<0){ currentMonth=11; currentYear--; }
-    loadCalendar();
-}
+function nextMonth(){ currentMonth++; if(currentMonth>11){ currentMonth=0; currentYear++; } loadCalendar(); }
+function prevMonth(){ currentMonth--; if(currentMonth<0){ currentMonth=11; currentYear--; } loadCalendar(); }
 
 // ---------------- SLOT & BOOKING ----------------
-function showTime(){
-    document.getElementById("timeBox").style.display="block";
-}
+function showTime(){ document.getElementById("timeBox").style.display="block"; }
 
 function confirmBooking(){
-
-    let slot = document.querySelector("input[name='slot']:checked");
+    let slot=document.querySelector("input[name='slot']:checked");
     if(!selectedDate){ alert("Select a day first"); return; }
     if(!slot){ alert("Select a slot"); return; }
 
-    selectedSlot = slot.value;
-    selectedTime = document.getElementById("timeInput").value;
-
+    selectedSlot=slot.value;
+    selectedTime=document.getElementById("timeInput").value;
     if(!selectedTime){ alert("Select a time"); return; }
 
-    db.ref("bookings/" + selectedDate).set({
-        name: userName,
-        phone: userPhone,
-        slot: selectedSlot,
-        time: selectedTime
+    db.ref("bookings/"+selectedDate).set({
+        name:userName, phone:userPhone, slot:selectedSlot, time:selectedTime
     });
 
-    document.getElementById("finalName").innerText = userName;
-    document.getElementById("finalPhone").innerText = userPhone;
-    document.getElementById("finalDate").innerText = selectedDate;
-    document.getElementById("finalSlot").innerText = selectedSlot;
-    document.getElementById("finalTime").innerText = selectedTime;
+    document.getElementById("finalName").innerText=userName;
+    document.getElementById("finalPhone").innerText=userPhone;
+    document.getElementById("finalDate").innerText=selectedDate;
+    document.getElementById("finalSlot").innerText=selectedSlot;
+    document.getElementById("finalTime").innerText=selectedTime;
 
     showPage("successPage");
 }
 
 // ---------------- PDF ----------------
-async function downloadReceipt() {
+async function downloadReceipt(){
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF("p", "mm", "a4");
+    const doc = new jsPDF("p","mm","a4");
+    const img=document.getElementById("bgImg");
 
-    const img = document.getElementById("bgImg");
+    const canvas=document.createElement("canvas");
+    canvas.width=img.width; canvas.height=img.height;
+    const ctx=canvas.getContext("2d"); ctx.drawImage(img,0,0);
+    const bgBase64=canvas.toDataURL("image/jpeg");
+    doc.addImage(bgBase64,"JPEG",0,0,210,297);
 
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const bgBase64 = canvas.toDataURL("image/jpeg");
-
-    doc.addImage(bgBase64, "JPEG", 0, 0, 210, 297);
-
-    doc.setFillColor(250, 222, 134);
-    doc.rect(15, 15, 210 - 25, 297 - 25 , "F");
-
-    doc.setFontSize(26);
-    doc.setTextColor(0, 0, 0);
-    doc.text("YELAIPANGALAN AYYAPPA SEVA TRUST", 105, 35, { align: "center" });
-    doc.text("Kanni Pooja Booking Receipt", 105, 50, { align: "center" });
-
-    doc.setFontSize(18);
-    doc.text("Booking Details", 105, 95, { align: "center" });
-
+    doc.setFillColor(250,222,134); doc.rect(15,15,185,267,"F");
+    doc.setFontSize(26); doc.setTextColor(0,0,0);
+    doc.text("YELAIPANGALAN AYYAPPA SEVA TRUST",105,35,{align:"center"});
+    doc.text("Kanni Pooja Booking Receipt",105,50,{align:"center"});
     doc.setFontSize(14);
-    doc.text(`Name : ${userName}`, 105, 120, { align: "center" });
-    doc.text(`Phone : ${userPhone}`, 105, 135, { align: "center" });
-    doc.text(`Date : ${selectedDate}`, 105, 150, { align: "center" });
-    doc.text(`Slot : ${selectedSlot}`, 105, 165, { align: "center" });
-    doc.text(`Time : ${selectedTime}`, 105, 180, { align: "center" });
-
+    doc.text(`Name : ${userName}`,105,120,{align:"center"});
+    doc.text(`Phone : ${userPhone}`,105,135,{align:"center"});
+    doc.text(`Date : ${selectedDate}`,105,150,{align:"center"});
+    doc.text(`Slot : ${selectedSlot}`,105,165,{align:"center"});
+    doc.text(`Time : ${selectedTime}`,105,180,{align:"center"});
     doc.setFontSize(12);
-    doc.text("Swamiye Saranam Ayyappa", 105, 265, { align: "center" });
-    doc.text("Ph:9994386217,9790065475", 105, 272, { align: "center" });
-
+    doc.text("Swamiye Saranam Ayyappa",105,265,{align:"center"});
+    doc.text("Ph:9994386217,9790065475",105,272,{align:"center"});
     doc.save("KanniPooja_Receipt.pdf");
 }
 
 // ---------------- ADMIN PANEL ----------------
 function adminLogin(){
-    let pwd = prompt("Enter Admin Password:");
-    if(pwd === "0000"){
-        showPage("adminPage");
-        loadAdminTable();
-    } else {
-        alert("Wrong Password");
-    }
+    let pwd=prompt("Enter Admin Password:");
+    if(pwd==="0000"){ showPage("adminPage"); loadAdminTable(); } 
+    else{ alert("Wrong Password"); }
 }
 
 function loadAdminTable(){
-    db.ref("bookings").once("value").then(snapshot =>{
-        let table = document.getElementById("adminTableBody");
-        table.innerHTML = "";
-
-        snapshot.forEach(child =>{
-            let date = child.key;
-            let b = child.val();
-
-            table.innerHTML += `
+    db.ref("bookings").once("value").then(snapshot=>{
+        let table=document.getElementById("adminTableBody"); table.innerHTML="";
+        snapshot.forEach(child=>{
+            let date=child.key; let b=child.val();
+            table.innerHTML+=`
                 <tr>
                     <td>${date}</td>
                     <td>${b.name}</td>
@@ -374,21 +307,18 @@ function loadAdminTable(){
 }
 
 function deleteBooking(date){
-    if(confirm("Delete booking for " + date + "?")){
-        db.ref("bookings/" + date).remove();
-        loadAdminTable();
-        loadCalendar();
+    if(confirm("Delete booking for "+date+"?")){
+        db.ref("bookings/"+date).remove();
+        loadAdminTable(); loadCalendar();
     }
 }
 
 function clearAllBookings(){
     if(confirm("Delete ALL bookings?")){
         db.ref("bookings").remove();
-        loadAdminTable();
-        loadCalendar();
+        loadAdminTable(); loadCalendar();
     }
 }
 </script>
-
 </body>
 </html>
