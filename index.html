@@ -11,10 +11,12 @@
         .box { background: white; padding: 20px; margin: auto; margin-top: 30px;
             width: 320px; border-radius: 10px; box-shadow: 0 0 15px #888; }
 
-        input, button {
+        input, select, button {
             width: 90%; padding: 12px; margin: 10px 0;
             font-size: 16px; border-radius: 5px; border:1px solid #333;
         }
+        select { width: 28%; display: inline-block; margin-right: 2%; vertical-align: middle; }
+        select:last-child { margin-right: 0; }
         button { background: #c6862c; color:white; cursor:pointer; }
 
         .calendar {
@@ -36,7 +38,7 @@
 
         .monthNav button { width:140px; }
         #slotSection { display:none; margin-top:20px; }
-        #timeBox { display:none; }
+        #timeBox { display:block; margin-top:10px; }
 
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #444; padding: 8px; }
@@ -72,12 +74,28 @@
 
     <div id="slotSection">
         <h3>Select Slot</h3>
-        <label><input type="radio" name="slot" value="FN" onchange="showTime()"> Forenoon</label><br>
-        <label><input type="radio" name="slot" value="AN" onchange="showTime()"> Afternoon</label>
+        <label style="display:block; margin-bottom:8px;"><input type="radio" name="slot" value="FN" onchange="showTime()"> Forenoon</label>
+        <label style="display:block; margin-bottom:8px;"><input type="radio" name="slot" value="AN" onchange="showTime()"> Afternoon</label>
 
         <div id="timeBox">
             <h3>Select Time</h3>
-            <input type="time" id="timeInput">
+
+            <!-- Hour -->
+            <select id="hourSelect" aria-label="Hour">
+                <option value="">Hour</option>
+            </select>
+
+            <!-- Minute -->
+            <select id="minuteSelect" aria-label="Minute">
+                <option value="">Minute</option>
+            </select>
+
+            <!-- AM/PM -->
+            <select id="ampmSelect" aria-label="AM or PM">
+                <option value="">AM/PM</option>
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+            </select>
         </div>
 
         <button onclick="confirmBooking()">Confirm Booking</button>
@@ -94,6 +112,8 @@
         <p><b>Slot:</b> <span id="finalSlot"></span></p>
         <p><b>Time:</b> <span id="finalTime"></span></p>
         <button onclick="downloadReceipt()">Download PDF</button>
+        <br><br>
+        <button onclick="showPage('bookingPage')" style="background:#6a8a4c;">Make another booking</button>
     </div>
 </div>
 
@@ -128,6 +148,36 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
+// ---------------- Populate dropdowns (Hour, Minute) ----------------
+(function populateTimeSelectors(){
+    const hourSel = document.getElementById("hourSelect");
+    for (let h = 1; h <= 12; h++) {
+        const opt = document.createElement("option");
+        opt.value = String(h);
+        opt.innerText = String(h);
+        hourSel.appendChild(opt);
+    }
+
+    const minuteSel = document.getElementById("minuteSelect");
+    for (let m = 0; m < 60; m++) {
+        const mm = String(m).padStart(2, "0");
+        const opt = document.createElement("option");
+        opt.value = mm;
+        opt.innerText = mm;
+        minuteSel.appendChild(opt);
+    }
+})();
+
+// ---------------- 12-HOUR TIME CONVERTER ----------------
+function convertTo12Hour(time24) {
+    if (!time24) return "";
+    let [hourStr, minute] = time24.split(":");
+    let hour = parseInt(hourStr, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour}:${minute} ${ampm}`;
+}
+
 // ---------------- FIREBASE INIT ----------------
 const firebaseConfig = {
   apiKey: "AIzaSyA5zbkUKAc5YsjLMVEljAAoXHdIpF5dhXs",
@@ -236,20 +286,38 @@ function confirmBooking(){
     if(!slot){ alert("Select a slot"); return; }
 
     selectedSlot=slot.value;
-    selectedTime=document.getElementById("timeInput").value;
-    if(!selectedTime){ alert("Select a time"); return; }
 
+    // Get values from dropdowns
+    let hour = document.getElementById("hourSelect").value;
+    let minute = document.getElementById("minuteSelect").value;
+    let ampm = document.getElementById("ampmSelect").value;
+
+    if (!hour || !minute || !ampm) { 
+        alert("Select full time (hour, minute, AM/PM)"); 
+        return; 
+    }
+
+    // Convert 12-hour → 24-hour string HH:MM
+    let hour24 = parseInt(hour, 10);
+    if (ampm === "PM" && hour24 !== 12) hour24 += 12;
+    if (ampm === "AM" && hour24 === 12) hour24 = 0;
+    selectedTime = `${String(hour24).padStart(2,"0")}:${minute}`;
+
+    // Save booking to Firebase (store 24-hour time)
     db.ref("bookings/"+selectedDate).set({
         name:userName, phone:userPhone, slot:selectedSlot, time:selectedTime
+    }).then(() => {
+        // Update success page values
+        document.getElementById("finalName").innerText=userName;
+        document.getElementById("finalPhone").innerText=userPhone;
+        document.getElementById("finalDate").innerText=selectedDate;
+        document.getElementById("finalSlot").innerText=selectedSlot;
+        document.getElementById("finalTime").innerText = convertTo12Hour(selectedTime);
+
+        showPage("successPage");
+    }).catch(err=>{
+        alert("Error saving booking: "+err.message);
     });
-
-    document.getElementById("finalName").innerText=userName;
-    document.getElementById("finalPhone").innerText=userPhone;
-    document.getElementById("finalDate").innerText=selectedDate;
-    document.getElementById("finalSlot").innerText=selectedSlot;
-    document.getElementById("finalTime").innerText=selectedTime;
-
-    showPage("successPage");
 }
 
 // ---------------- PDF ----------------
@@ -258,11 +326,21 @@ async function downloadReceipt(){
     const doc = new jsPDF("p","mm","a4");
     const img=document.getElementById("bgImg");
 
-    const canvas=document.createElement("canvas");
-    canvas.width=img.width; canvas.height=img.height;
-    const ctx=canvas.getContext("2d"); ctx.drawImage(img,0,0);
-    const bgBase64=canvas.toDataURL("image/jpeg");
-    doc.addImage(bgBase64,"JPEG",0,0,210,297);
+    // Attempt to draw background image if available (best-effort)
+    try {
+        const canvas=document.createElement("canvas");
+        // If image not loaded, fallback to plain background fill
+        canvas.width = img.naturalWidth || 800;
+        canvas.height = img.naturalHeight || 1000;
+        const ctx=canvas.getContext("2d");
+        if (img.complete && img.naturalWidth) {
+            ctx.drawImage(img,0,0, canvas.width, canvas.height);
+            const bgBase64=canvas.toDataURL("image/jpeg");
+            doc.addImage(bgBase64,"JPEG",0,0,210,297);
+        }
+    } catch(e){
+        // ignore background if any error
+    }
 
     doc.setFillColor(250,222,134); doc.rect(15,15,185,267,"F");
     doc.setFontSize(26); doc.setTextColor(0,0,0);
@@ -273,7 +351,7 @@ async function downloadReceipt(){
     doc.text(`Phone : ${userPhone}`,105,135,{align:"center"});
     doc.text(`Date : ${selectedDate}`,105,150,{align:"center"});
     doc.text(`Slot : ${selectedSlot}`,105,165,{align:"center"});
-    doc.text(`Time : ${selectedTime}`,105,180,{align:"center"});
+    doc.text(`Time : ${convertTo12Hour(selectedTime)}`,105,180,{align:"center"});
     doc.setFontSize(12);
     doc.text("Swamiye Saranam Ayyappa",105,265,{align:"center"});
     doc.text("Ph:9994386217,9790065475",105,272,{align:"center"});
@@ -290,6 +368,10 @@ function adminLogin(){
 function loadAdminTable(){
     db.ref("bookings").once("value").then(snapshot=>{
         let table=document.getElementById("adminTableBody"); table.innerHTML="";
+        if(!snapshot.exists()){
+            table.innerHTML = `<tr><td colspan="6">No bookings</td></tr>`;
+            return;
+        }
         snapshot.forEach(child=>{
             let date=child.key; let b=child.val();
             table.innerHTML+=`
@@ -298,27 +380,41 @@ function loadAdminTable(){
                     <td>${b.name}</td>
                     <td>${b.phone}</td>
                     <td>${b.slot}</td>
-                    <td>${b.time}</td>
+                    <td>${convertTo12Hour(b.time)}</td>
                     <td><button onclick="deleteBooking('${date}')">Delete</button></td>
                 </tr>
             `;
         });
+    }).catch(err=>{
+        alert("Error loading admin table: "+err.message);
     });
 }
 
 function deleteBooking(date){
     if(confirm("Delete booking for "+date+"?")){
-        db.ref("bookings/"+date).remove();
-        loadAdminTable(); loadCalendar();
+        db.ref("bookings/"+date).remove().then(()=>{
+            loadAdminTable(); loadCalendar();
+        }).catch(err=>{
+            alert("Error deleting: "+err.message);
+        });
     }
 }
 
 function clearAllBookings(){
     if(confirm("Delete ALL bookings?")){
-        db.ref("bookings").remove();
-        loadAdminTable(); loadCalendar();
+        db.ref("bookings").remove().then(()=>{
+            loadAdminTable(); loadCalendar();
+        }).catch(err=>{
+            alert("Error clearing bookings: "+err.message);
+        });
     }
 }
+
+// Initialize calendar if user already logged in (not required, but safe)
+document.addEventListener("DOMContentLoaded", function(){
+    // hide slotSection until a date selected
+    document.getElementById("slotSection").style.display = "none";
+});
 </script>
 </body>
 </html>
