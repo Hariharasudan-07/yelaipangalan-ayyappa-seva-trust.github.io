@@ -3,11 +3,6 @@
 <head>
     <title>YELAIPANGALAN AYYAPPA SEVA TRUST — Kanni Pooja Booking</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-sA+e2kG6kH0Jb0p2v6k5q8gqk5z1g3Z2s8o2u7B2QvM=" crossorigin=""/>
-
     <style>
         body { font-family: Arial; background: #fdf6e3; text-align: center; padding: 0; margin: 0; }
         .page { display: none; padding: 20px; }
@@ -16,19 +11,20 @@
         .box { background: white; padding: 20px; margin: auto; margin-top: 30px;
             width: 320px; border-radius: 10px; box-shadow: 0 0 15px #888; }
 
-        input, button, select {
+        input, button {
             width: 90%; padding: 12px; margin: 10px 0;
             font-size: 16px; border-radius: 5px; border:1px solid #333;
         }
         button { background: #c6862c; color:white; cursor:pointer; }
-        .small-btn { padding:6px 8px; font-size:14px; border-radius:6px; cursor:pointer; }
 
         .calendar {
             display: grid; grid-template-columns: repeat(7,1fr);
             gap: 8px; max-width: 500px; margin: auto;
         }
 
-        .calendar div { min-height: 40px; }
+        .calendar div { 
+            min-height: 40px; 
+        }
 
         .day {
             padding: 12px; border-radius: 6px; font-weight:bold; cursor:pointer;
@@ -43,17 +39,7 @@
         #timeBox { display:none; }
 
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #444; padding: 8px; text-align: left; vertical-align: middle; }
-
-        /* Picker map */
-        #pickerContainer { display:none; margin-top:12px; max-width: 800px; margin-left:auto; margin-right:auto; background: #fff; padding:12px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-        #pickerMap { width: 100%; height: 380px; border-radius:8px; }
-
-        @media (max-width:700px){
-            .box { width: 92%; }
-            input, button, select { width: 92%; }
-            #pickerMap { height: 300px; }
-        }
+        th, td { border: 1px solid #444; padding: 8px; }
     </style>
 </head>
 <body>
@@ -77,7 +63,6 @@
 <!-- BOOKING PAGE -->
 <div id="bookingPage" class="page">
     <h2>Kanni Pooja Booking</h2>
-
     <div class="monthNav">
         <button onclick="prevMonth()">◀ Previous</button>
         <button onclick="nextMonth()">Next ▶</button>
@@ -87,36 +72,17 @@
 
     <div id="slotSection">
         <h3>Select Slot</h3>
-        <label><input type="radio" name="slot" value="FN" onchange="onSlotOrTimeChange()"> Forenoon</label><br>
-        <label><input type="radio" name="slot" value="AN" onchange="onSlotOrTimeChange()"> Afternoon</label>
+        <label><input type="radio" name="slot" value="FN" onchange="showTime()"> Forenoon</label><br>
+        <label><input type="radio" name="slot" value="AN" onchange="showTime()"> Afternoon</label>
 
         <div id="timeBox">
             <h3>Select Time</h3>
-            <input type="time" id="timeInput" onchange="onSlotOrTimeChange()">
-        </div>
-
-        <!-- CHOOSE LOCATION BUTTON (placement 1: immediately below time selector) -->
-        <div id="locationActions" style="margin-top:12px;">
-            <h3>Choose Your Location</h3>
-            <button id="chooseLocBtn" onclick="openPicker()">📍 Choose Location on Map</button>
-            <p id="locStatus" style="font-weight:bold; margin-top:8px;">Location not chosen</p>
+            <input type="time" id="timeInput">
         </div>
 
         <button onclick="confirmBooking()">Confirm Booking</button>
     </div>
 </div>
-
-<!-- MAP PICKER CONTAINER (hidden) -->
-<div id="pickerContainer">
-    <h3 style="margin-top:0">Tap on map to place marker (drag to adjust)</h3>
-    <div id="pickerMap"></div>
-    <p id="pickedCoords" style="font-weight:600; margin-top:8px;">No coordinates selected</p>
-    <div style="margin-top:8px;">
-        <button onclick="usePickedLocation()">Use this location</button>
-        <button onclick="closePicker()" style="background:#777; margin-left:8px;">Cancel</button>
-    </div>
-</div>
-<!-- END MAP PICKER -->
 
 <!-- SUCCESS PAGE -->
 <div id="successPage" class="page">
@@ -127,7 +93,6 @@
         <p><b>Date:</b> <span id="finalDate"></span></p>
         <p><b>Slot:</b> <span id="finalSlot"></span></p>
         <p><b>Time:</b> <span id="finalTime"></span></p>
-        <p><b>Location:</b> <span id="finalLocation">Not provided</span></p>
         <button onclick="downloadReceipt()">Download PDF</button>
     </div>
 </div>
@@ -146,7 +111,6 @@
                 <th>Phone</th>
                 <th>Slot</th>
                 <th>Time</th>
-                <th>Location</th>
                 <th>Delete</th>
             </tr>
         </thead>
@@ -155,10 +119,6 @@
     <br>
     <button onclick="showPage('loginPage')">Logout</button>
 </div>
-
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-o9N1jGQro3v+v3gkGk4b4C9j6k2V0p+0y3+7k5c8h2M=" crossorigin=""></script>
 
 <!-- Firebase v8 SDK -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -174,7 +134,7 @@ const firebaseConfig = {
   authDomain: "ayyappa-booking.firebaseapp.com",
   databaseURL: "https://ayyappa-booking-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "ayyappa-booking",
-  storageBucket: "ayyappa-booking.firebasedestorage.app",
+  storageBucket: "ayyappa-booking.firebasestorage.app",
   messagingSenderId: "110638537912",
   appId: "1:110638537912:web:6a3c9c92baf2860668684d",
   measurementId: "G-GQ0PP4JN9D"
@@ -187,18 +147,6 @@ let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 let userName = "", userPhone = "";
 let selectedDate = null, selectedSlot = null, selectedTime = null;
-
-// location variables to save with booking
-let userLat = null;
-let userLng = null;
-let userMapLink = null;
-
-// picker map variables
-let pickerMap = null;
-let pickerMarker = null;
-let pickerInitialized = false;
-let tempPickedLat = null;
-let tempPickedLng = null;
 
 // ---------------- PAGE SWITCH ----------------
 function showPage(id){
@@ -218,10 +166,6 @@ function login(){
 // ---------------- CALENDAR ----------------
 function loadCalendar() {
     document.getElementById("slotSection").style.display = "none";
-    // location button is always visible since user wanted always visible earlier; keep status reset
-    document.getElementById("locStatus").innerText = "Location not chosen";
-    // hide picker
-    document.getElementById("pickerContainer").style.display = "none";
 
     const monthNames = [
         "January","February","March","April","May","June",
@@ -265,7 +209,7 @@ function loadCalendar() {
             let dateObj = new Date(currentYear,currentMonth,d);
 
             if(dateObj < todayMid){ div.classList.add("past"); }
-            else if(bookings && bookings[key]){ div.classList.add("booked"); }
+            else if(bookings[key]){ div.classList.add("booked"); }
             else{ div.classList.add("available"); }
 
             div.onclick = function(){
@@ -274,126 +218,18 @@ function loadCalendar() {
                 document.querySelectorAll(".day").forEach(x => x.classList.remove("selected"));
                 div.classList.add("selected");
                 document.getElementById("slotSection").style.display="block";
-
-                // reset location for a fresh booking flow
-                userLat = null; userLng = null; userMapLink = null;
-                tempPickedLat = null; tempPickedLng = null;
-                pickerMarker = null;
-                document.getElementById("locStatus").innerText = "Location not chosen";
-                const finalLocEl = document.getElementById("finalLocation");
-                if(finalLocEl) finalLocEl.innerText = "Not provided";
             };
             cal.appendChild(div);
         }
-    }).catch(err=>{
-        console.error("Error loading bookings:", err);
     });
 }
 
 function nextMonth(){ currentMonth++; if(currentMonth>11){ currentMonth=0; currentYear++; } loadCalendar(); }
 function prevMonth(){ currentMonth--; if(currentMonth<0){ currentMonth=11; currentYear--; } loadCalendar(); }
 
-// ---------------- SLOT & TIME UI ----------------
-function onSlotOrTimeChange(){
-    // show time box when a slot is chosen
-    let slotChecked = document.querySelector("input[name='slot']:checked");
-    if(slotChecked) document.getElementById("timeBox").style.display = "block";
+// ---------------- SLOT & BOOKING ----------------
+function showTime(){ document.getElementById("timeBox").style.display="block"; }
 
-    // show location button always visible (per user request). We do not hide it here.
-}
-
-// ---------------- MAP PICKER (fixed) ----------------
-function openPicker(){
-    // show container first
-    const container = document.getElementById("pickerContainer");
-    container.style.display = "block";
-
-    // small delay to allow browser layout, then init/refresh map
-    setTimeout(() => {
-        if(!pickerInitialized){
-            // default center: change if you want a different start location
-            const defaultCenter = [10.0, 78.0];
-            pickerMap = L.map('pickerMap', {tap: true}).setView(defaultCenter, 7);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(pickerMap);
-
-            // try to center to user's position (non-blocking)
-            if(navigator.geolocation){
-                navigator.geolocation.getCurrentPosition((pos)=>{
-                    try { pickerMap.setView([pos.coords.latitude, pos.coords.longitude], 13); } catch(e){}
-                }, ()=>{}, {timeout:4000});
-            }
-
-            pickerMap.on('click', function(e){
-                placeOrMovePickerMarker(e.latlng.lat, e.latlng.lng);
-            });
-
-            pickerInitialized = true;
-        } else {
-            // When picker already exists, force a refresh of size so tiles render
-            pickerMap.invalidateSize();
-        }
-
-        // some browsers still need another small delay
-        setTimeout(()=>{ pickerMap.invalidateSize(); }, 300);
-    }, 200);
-}
-
-function placeOrMovePickerMarker(lat, lng){
-    tempPickedLat = lat;
-    tempPickedLng = lng;
-
-    if(!pickerMarker){
-        pickerMarker = L.marker([lat, lng], {draggable:true}).addTo(pickerMap);
-        pickerMarker.on('dragend', function(e){
-            const pos = e.target.getLatLng();
-            tempPickedLat = pos.lat;
-            tempPickedLng = pos.lng;
-            updatePickerCoordsDisplay();
-        });
-    } else {
-        pickerMarker.setLatLng([lat, lng]);
-    }
-    updatePickerCoordsDisplay();
-    pickerMap.panTo([lat, lng]);
-}
-
-function updatePickerCoordsDisplay(){
-    if(tempPickedLat !== null && tempPickedLng !== null){
-        document.getElementById("pickedCoords").innerText = `Selected: ${tempPickedLat.toFixed(6)}, ${tempPickedLng.toFixed(6)}`;
-    } else {
-        document.getElementById("pickedCoords").innerText = `No coordinates selected`;
-    }
-}
-
-function usePickedLocation(){
-    if(tempPickedLat === null || tempPickedLng === null){
-        alert("Please tap on the map to choose a location first.");
-        return;
-    }
-    // Save picked coords into user variables
-    userLat = Number(tempPickedLat.toFixed(6));
-    userLng = Number(tempPickedLng.toFixed(6));
-    userMapLink = `https://www.google.com/maps?q=${userLat},${userLng}`;
-
-    // Update UI
-    document.getElementById("locStatus").innerText = `📍 Chosen: ${userLat.toFixed(6)}, ${userLng.toFixed(6)}`;
-    document.getElementById("pickerContainer").style.display = "none";
-
-    // update success page preview if already booked
-    const finalLocEl = document.getElementById("finalLocation");
-    if(finalLocEl) finalLocEl.innerText = `${userLat.toFixed(6)}, ${userLng.toFixed(6)}`;
-}
-
-// close picker without saving
-function closePicker(){
-    document.getElementById("pickerContainer").style.display = "none";
-}
-
-// ---------------- BOOKING SAVE ----------------
 function confirmBooking(){
     let slot=document.querySelector("input[name='slot']:checked");
     if(!selectedDate){ alert("Select a day first"); return; }
@@ -403,37 +239,17 @@ function confirmBooking(){
     selectedTime=document.getElementById("timeInput").value;
     if(!selectedTime){ alert("Select a time"); return; }
 
-    // Build booking object
-    let bookingObj = {
-        name: userName,
-        phone: userPhone,
-        slot: selectedSlot,
-        time: selectedTime
-    };
-
-    // If location chosen, include it
-    if (userLat !== null && userLng !== null) {
-        bookingObj.lat = userLat;
-        bookingObj.lng = userLng;
-        bookingObj.mapLink = userMapLink;
-    }
-
-    // Save to Firebase under date key
-    db.ref("bookings/"+selectedDate).set(bookingObj, (err) => {
-        if (err) {
-            alert("Failed to save booking. Try again.");
-            console.error(err);
-            return;
-        }
-        document.getElementById("finalName").innerText=userName;
-        document.getElementById("finalPhone").innerText=userPhone;
-        document.getElementById("finalDate").innerText=selectedDate;
-        document.getElementById("finalSlot").innerText=selectedSlot;
-        document.getElementById("finalTime").innerText=selectedTime;
-        document.getElementById("finalLocation").innerText = (userLat !== null ? `${userLat.toFixed(6)}, ${userLng.toFixed(6)}` : "Not provided");
-
-        showPage("successPage");
+    db.ref("bookings/"+selectedDate).set({
+        name:userName, phone:userPhone, slot:selectedSlot, time:selectedTime
     });
+
+    document.getElementById("finalName").innerText=userName;
+    document.getElementById("finalPhone").innerText=userPhone;
+    document.getElementById("finalDate").innerText=selectedDate;
+    document.getElementById("finalSlot").innerText=selectedSlot;
+    document.getElementById("finalTime").innerText=selectedTime;
+
+    showPage("successPage");
 }
 
 // ---------------- PDF ----------------
@@ -442,15 +258,11 @@ async function downloadReceipt(){
     const doc = new jsPDF("p","mm","a4");
     const img=document.getElementById("bgImg");
 
-    try {
-        const canvas=document.createElement("canvas");
-        canvas.width=img.width; canvas.height=img.height;
-        const ctx=canvas.getContext("2d"); ctx.drawImage(img,0,0);
-        const bgBase64=canvas.toDataURL("image/jpeg");
-        doc.addImage(bgBase64,"JPEG",0,0,210,297);
-    } catch(e){
-        console.warn("Background image not added to PDF:", e);
-    }
+    const canvas=document.createElement("canvas");
+    canvas.width=img.width; canvas.height=img.height;
+    const ctx=canvas.getContext("2d"); ctx.drawImage(img,0,0);
+    const bgBase64=canvas.toDataURL("image/jpeg");
+    doc.addImage(bgBase64,"JPEG",0,0,210,297);
 
     doc.setFillColor(250,222,134); doc.rect(15,15,185,267,"F");
     doc.setFontSize(26); doc.setTextColor(0,0,0);
@@ -462,13 +274,6 @@ async function downloadReceipt(){
     doc.text(`Date : ${selectedDate}`,105,150,{align:"center"});
     doc.text(`Slot : ${selectedSlot}`,105,165,{align:"center"});
     doc.text(`Time : ${selectedTime}`,105,180,{align:"center"});
-
-    // If location exists, print it on receipt
-    if (userLat !== null && userLng !== null) {
-        doc.setFontSize(12);
-        doc.text(`Location : ${userLat.toFixed(6)}, ${userLng.toFixed(6)}`,105,195,{align:"center"});
-    }
-
     doc.setFontSize(12);
     doc.text("Swamiye Saranam Ayyappa",105,265,{align:"center"});
     doc.text("Ph:9994386217,9790065475",105,272,{align:"center"});
@@ -485,35 +290,19 @@ function adminLogin(){
 function loadAdminTable(){
     db.ref("bookings").once("value").then(snapshot=>{
         let table=document.getElementById("adminTableBody"); table.innerHTML="";
-        if (!snapshot.exists()) {
-            table.innerHTML = `<tr><td colspan="7" style="text-align:center;">No bookings</td></tr>`;
-            return;
-        }
         snapshot.forEach(child=>{
             let date=child.key; let b=child.val();
-            // prepare location cell
-            let locCell = "Not shared";
-            if (b && b.lat !== undefined && b.lng !== undefined) {
-                const coords = `${Number(b.lat).toFixed(6)}, ${Number(b.lng).toFixed(6)}`;
-                const link = b.mapLink ? b.mapLink : `https://www.google.com/maps?q=${b.lat},${b.lng}`;
-                const safeLink = String(link).replace(/'/g, "\\'");
-                locCell = `${coords} <br> <button class="small-btn" onclick="window.open('${safeLink}','_blank')">View on Map</button>`;
-            }
-
             table.innerHTML+=`
                 <tr>
                     <td>${date}</td>
-                    <td>${b.name || ''}</td>
-                    <td>${b.phone || ''}</td>
-                    <td>${b.slot || ''}</td>
-                    <td>${b.time || ''}</td>
-                    <td>${locCell}</td>
+                    <td>${b.name}</td>
+                    <td>${b.phone}</td>
+                    <td>${b.slot}</td>
+                    <td>${b.time}</td>
                     <td><button onclick="deleteBooking('${date}')">Delete</button></td>
                 </tr>
             `;
         });
-    }).catch(err=>{
-        console.error("Failed to load admin table:", err);
     });
 }
 
@@ -530,11 +319,6 @@ function clearAllBookings(){
         loadAdminTable(); loadCalendar();
     }
 }
-
-// init
-document.addEventListener("DOMContentLoaded", function(){
-    loadCalendar();
-});
 </script>
 </body>
 </html>
